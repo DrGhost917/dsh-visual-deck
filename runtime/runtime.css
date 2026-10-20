@@ -1,0 +1,255 @@
+/*
+ * dsh-visual-deck —— 注入到首页 <head> 的样式（结构化注入行的 kind:'style'）。
+ *
+ * 两块内容：
+ *   ① 开机动画覆盖层（#vd-boot）——自带全部颜色，不依赖主题变量；
+ *   ② 会话背景层（#vd-backdrop）+ 界面表面半透明化。
+ *
+ * 为什么表面半透明化改的是 `--dsw-alias-*` 而不是给某个容器加样式：
+ * 主题把整套色板定义在 `body` / `body[data-ds-dark-theme]` 上，全应用的可视表面都引用
+ * 这些别名。覆盖别名 = 一次改到所有面板，不需要知道任何组件类名；自定义属性上的
+ * `!important` 会压过主题里的普通声明，所以不需要比特异性。
+ *
+ * 刻意保持不透明的表面：弹层/气泡/菜单（--dsw-alias-bg-overlay）、
+ * 文档预览、遮罩 —— 它们盖在内容之上，透明会让文字糊成一片。
+ *
+ * 亮度分寸：默认值偏"保守"（表面比较实）。素材可能是亮的也可能是暗的，
+ * 让人一眼看清字比让画面更透重要；后续要调，只需要动下面几组 alpha。
+ */
+
+/* ───────────────────────── ① 开机动画覆盖层 ───────────────────────── */
+
+#vd-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 44%, #0d1a2b 0%, #070b12 62%, #04060a 100%);
+  color: #e8eef6;
+  font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  opacity: 1;
+  transition: opacity 460ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#vd-boot[data-state="leaving"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vd-boot-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 620ms ease;
+  background: transparent;
+}
+
+.vd-boot-media[data-shown="1"] {
+  opacity: 1;
+}
+
+.vd-boot-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 92% 86% at 50% 50%, transparent 62%, rgba(3, 7, 13, 0.5) 100%);
+}
+
+.vd-boot-ui {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 30px 34px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+.vd-boot-bar {
+  width: min(320px, 52vw);
+  height: 2px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(232, 238, 246, 0.18);
+}
+
+.vd-boot-fill {
+  height: 100%;
+  width: 30%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4f9dd9, #9fdcff);
+  box-shadow: 0 0 12px rgba(143, 216, 255, 0.6);
+  animation: vd-slide 1.8s ease-in-out infinite;
+}
+
+@keyframes vd-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+.vd-boot-hint {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: #9db8d4;
+}
+
+.vd-boot-skip {
+  position: absolute;
+  right: 26px;
+  bottom: 26px;
+  z-index: 3;
+  padding: 9px 15px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: #dfeaf7;
+  background: rgba(10, 18, 30, 0.55);
+  border: 1px solid rgba(198, 220, 246, 0.3);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  opacity: 0.92;
+}
+
+#vd-boot[data-state="leaving"] .vd-boot-skip {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vd-boot-fill {
+    animation: none;
+    width: 100%;
+  }
+}
+
+/* ───────────────────────── ② 会话背景 ───────────────────────── */
+
+/* html 的画布色：视频还没解码出来时不要闪白。`:has()` 让它跟随主题。 */
+html[data-vd="on"]:has(body[data-ds-dark-theme]) {
+  background-color: #0e1116 !important;
+}
+
+html[data-vd="on"]:not(:has(body[data-ds-dark-theme])) {
+  background-color: #eef1f5 !important;
+}
+
+html[data-vd="on"],
+html[data-vd="on"] body {
+  /* 主题把不透明底色画在 body 上；不透明的话背景永远被盖住。 */
+  background-color: transparent !important;
+}
+
+/* 外壳的挂载点如果自己画了底色（不走别名 token 的那种），这里一并抹掉。
+   只抹挂载点，不动弹层/菜单，所以不影响可读性。 */
+html[data-vd="on"] #root,
+html[data-vd="on"] #app,
+html[data-vd="on"] body > div:first-child {
+  background-color: transparent !important;
+}
+
+/* 背景层：z-index:-1 落在所有在流内容之下（含挂在 body 上的 portal），
+   不挡住任何交互，也不需要给应用任何东西加 z-index。 */
+#vd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0e1116;
+}
+
+body:not([data-ds-dark-theme]) #vd-backdrop {
+  background: #eef1f5;
+}
+
+/* 不靠 `load` 事件才显示：图片一旦解码就会画出来，
+   把显隐绑在事件上只会在事件没来的时候留下一个"黑底的空层"。 */
+.vd-backdrop-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: transparent;
+  opacity: 1;
+  /* 模糊来自设置里的滑块；稍微放大一点，免得模糊把边缘拉出透明带。 */
+  filter: blur(var(--vd-blur, 0px));
+  transform: scale(1.04);
+}
+
+.vd-backdrop-media[data-shown="1"] {
+  opacity: 1;
+}
+
+#vd-backdrop-veil {
+  position: absolute;
+  inset: 0;
+  /* 把画面平均亮度拉向文字色那一端：亮主题压白、暗主题压黑。 */
+  background: rgba(255, 255, 255, var(--vd-veil-light, 0.1));
+}
+
+body[data-ds-dark-theme] #vd-backdrop-veil {
+  background: rgba(0, 0, 0, var(--vd-veil, 0.18));
+}
+
+/* 表面半透明化：亮/暗两套值刻意不同 —— 亮主题的文字是深色，白面太薄就掉对比度。 */
+html[data-vd="on"] body {
+  --dsw-alias-bg-base: rgba(255, 255, 255, var(--vd-surface-light, 0.62)) !important;
+  --dsw-alias-bg-layer-1: rgba(255, 255, 255, var(--vd-layer1-light, 0.7)) !important;
+  --dsw-alias-bg-layer-2: rgba(255, 255, 255, var(--vd-layer2-light, 0.74)) !important;
+  --dsw-alias-bg-layer-3: rgba(255, 255, 255, var(--vd-layer3-light, 0.78)) !important;
+  --dsw-specific-sidebar-fill: rgba(249, 250, 251, var(--vd-sidebar-light, 0.68)) !important;
+}
+
+html[data-vd="on"] body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgba(21, 21, 23, var(--vd-surface, 0.16)) !important;
+  --dsw-alias-bg-layer-1: rgba(35, 35, 36, var(--vd-layer1, 0.26)) !important;
+  --dsw-alias-bg-layer-2: rgba(41, 41, 41, var(--vd-layer2, 0.32)) !important;
+  --dsw-alias-bg-layer-3: rgba(47, 47, 49, var(--vd-layer3, 0.36)) !important;
+  --dsw-specific-sidebar-fill: rgba(27, 27, 28, var(--vd-sidebar, 0.24)) !important;
+}
+
+/* 打开模态弹层（设置、选模型、确认框……）时把表面拉回接近不透明。
+ *
+ * 为什么必须这么做：这些面板也引用同一批 `--dsw-alias-bg-*` 别名，半透明会让
+ * **背后的对话文字直接透上来**，两段字叠在一起谁也读不清（实测截图就是一团糊）。
+ *
+ * 标记由 runtime.js 里的 watchModals() 打：只认"看得见"的弹层，隐藏起来的弹层
+ * 不会让壁纸永远不透；关掉弹层后标记移除，半透明自动恢复。
+ */
+html[data-vd="on"][data-vd-modal="1"] body:not([data-ds-dark-theme]) {
+  --dsw-alias-bg-base: rgba(255, 255, 255, 0.96) !important;
+  --dsw-alias-bg-layer-1: rgba(253, 253, 254, 0.97) !important;
+  --dsw-alias-bg-layer-2: rgba(250, 251, 252, 0.97) !important;
+  --dsw-alias-bg-layer-3: rgba(247, 248, 250, 0.98) !important;
+  --dsw-specific-sidebar-fill: rgba(249, 250, 251, 0.96) !important;
+}
+
+html[data-vd="on"][data-vd-modal="1"] body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgba(21, 21, 23, 0.95) !important;
+  --dsw-alias-bg-layer-1: rgba(35, 35, 36, 0.96) !important;
+  --dsw-alias-bg-layer-2: rgba(41, 41, 41, 0.96) !important;
+  --dsw-alias-bg-layer-3: rgba(47, 47, 49, 0.97) !important;
+  --dsw-specific-sidebar-fill: rgba(27, 27, 28, 0.95) !important;
+}
+
+/* reduced-motion 下不播背景视频：只剩蒙版 + 半透明表面，观感仍然成立。 */
+@media (prefers-reduced-motion: reduce) {
+  .vd-backdrop-media[data-kind="video"] {
+    display: none;
+  }
+}

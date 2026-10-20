@@ -1,0 +1,8 @@
+# dsh-visual-deck bundle patch
+# 把「视觉资源」行插进 profile 的插件树。
+# 设置页在「设置 → 视觉资源」，数据落在 <DSH_HOME>/storages/dsh-visual-deck/。
+- insert:
+    - id: visual-deck
+      name: dsh-visual-deck
+      config:
+        enabled: true
